@@ -1,0 +1,15 @@
+def get_train_val_test_data(date):    
+        d_12=(datetime.datetime.strptime(date, "%Y-%m") - datetime.timedelta(days=365)).strftime('%Y-%m')
+        train_df=df[(df['y_m']>=d_12) & (df['y_m']<date)]
+        #train_val_df = train_val_df.sample(frac=1).reset_index(drop=True)                                            
+        test_df =df[df['y_m']==date]   
+        return train_df,test_df
+
+
+def format_feature_label(origin_df, is_filter=True):    
+    #if is_filter:
+        #origin_df = origin_df[origin_df['rets']!=0]
+    df_test= origin_df                
+    feature = origin_df[factor_names]
+    label = origin_df['rets']
+    return feature, label,df_test
