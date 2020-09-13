@@ -1,0 +1,69 @@
+start = '2016-04-01'                       
+end = '2018-03-01'                         
+benchmark = 'HS300'  
+universe = DynamicUniverse('HS300')
+freq = 'd'                                     
+refresh_rate = Monthly(1)                       
+accounts = {
+    'fantasy_account': AccountConfig(account_type='security', capital_base=10000000,commission = Commission(buycost=0.0003, sellcost=0.0013, unit='perValue'), slippage = Slippage(value=0.002))
+}
+
+def initialize(context):                     
+    pass
+
+def handle_data(context):                 
+    account = context.get_account('fantasy_account')
+    current_universe = context.get_universe('stock', exclude_halt=True)
+    pre_date = context.previous_date.strftime("%Y-%m-%d")
+    cangwei=[]
+    for i in current_universe:        
+        s=secID2ticker(i)
+        cangwei.append(s)
+    #print(cangwei)
+    if pre_date in q_dates:                          
+        
+        q = factor_data.ix[pre_date].dropna()
+        #print(q)
+        q = q.set_index('stock', drop=True)
+        #print(q)
+        q = q.ix[cangwei].dropna()   
+        #print(current_universe)
+        #print(q)
+        #q_max = q['factor'].quantile(0.8)
+        #my_univ = q[(q['factor']>q_max)].index.values 
+        q_max = q['factor'].quantile(1)
+        q_min= q['factor'].quantile(0.5)
+        
+        my_univ1 = q[(q['factor']>=q_min)&(q['factor']<q_max)].index.values
+        my_univ2 = DataAPI.EquGet(secID=u"",ticker=my_univ1,equTypeCD=u"A",listStatusCD=u"",field=u"",pandas="1")  
+        myuniv = list(my_univ2['secID'])
+        #print(myuniv)
+        #print(my_univ1)
+        #print(context.current_date)
+        
+        positions = account.get_positions()
+        
+        
+        
+        global stock_history
+        #date=account.current_date
+        dayspan=datetime.timedelta(days=360)   
+        stock_history=pd.DataFrame()
+        stock_history=get_historical_closes(myuniv,context.current_date-dayspan,context.current_date).dropna()
+        #print current_date,current_date-dayspan
+        
+        account.portweights=port_weight(myuniv)
+        #print(account.portweights)
+        
+        
+        
+        #print(positions)
+        sell_list = [stk for stk in positions if stk not in myuniv]
+        for stk in sell_list:   
+            account.order_to(stk,0)     
+        
+        for stk in myuniv:
+            for i in range(len(myuniv)):
+                if account.portweights[i]>=0 and account.portweights[i]<=1:
+                    order_pct_to(myuniv[i],account.portweights[i])
+            #account.order_pct_to(stk, 1.0/len(myuniv))
