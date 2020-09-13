@@ -1,0 +1,36 @@
+def statistics(weights):
+    global stock_history
+    weights = np.array(weights)
+    port_returns = np.sum(stock_history.mean()*weights)*252 
+    port_variance = np.sqrt(np.dot(weights.T, np.dot(stock_history.cov()*252,weights)))
+    return np.array([port_returns, port_variance, port_returns/port_variance])
+
+def min_sharpe(weights):
+    return -statistics(weights)[2]
+
+def min_variance(weights):
+    return statistics(weights)[1]
+def port_weight(stockpool):
+    n=len(stockpool)
+    #print n
+    weights_gus=n*[1./n]
+    
+    cons = ({'type':'eq', 'fun':lambda x: np.sum(x)-1})
+    
+    bnds = tuple((0,1) for x in range(n))
+    
+    #optv = minimize(min_variance,weights_gus,method = 'SLSQP', bounds = bnds, constraints = cons)
+    #log.info("portweights")
+    #log.info(optv['x'].round(3))
+    #return optv['x'].round(3)
+    opts = minimize(min_sharpe, weights_gus, method = 'SLSQP', bounds = bnds, constraints = cons)
+    #log.info(opts['x'].round(3))
+    return opts['x'].round(3)
+def get_historical_closes(ticker, start_date, end_date):
+    p = DataAPI.MktEqudGet(secID=ticker,beginDate=start_date,endDate=end_date,field=u"secID,tradeDate,closePrice",pandas="1") 
+    p.rename(columns={'tradeDate': 'Date', 
+                      'closePrice': 'Close'}, inplace=True)
+    pivoted = p.pivot(index='Date', columns='secID')
+    #pivoted.columns = pivoted.columns.droplevel(0)
+    #print pivoted,pivoted.shift(1)
+    return np.log(pivoted/pivoted.shift(1))
