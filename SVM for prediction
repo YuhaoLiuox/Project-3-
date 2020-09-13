@@ -1,0 +1,42 @@
+LR_model_list = []
+accuracy=[]
+classification=[]
+final=pd.DataFrame()
+
+#for date in df['y_m'].drop_duplicates()[12:]:  
+
+
+for date in df['y_m'].drop_duplicates()[12:]:    
+
+    print('training model for %s' % date)
+    train_df,test_df = get_train_val_test_data(date)  
+    train_feature, train_label,df_train = format_feature_label(train_df)       
+    test_feature, test_label,df_test = format_feature_label(test_df)
+    params1 = {'C':range(1,10,2),'gamma':[x /100. for x in range(1,10,2)],'kernel':['linear','poly','rbf','sigmoid']}
+    clf_svm = svm.SVC(probability=True)
+    clf_AdaBoost = AdaBoostClassifier(n_estimators = 350 , learning_rate = 1.53 ) 
+    
+    lr=LogisticRegression()           
+    params={'C':np.arange(0.01,0.1,0.01)}
+    #clf=GridSearchCV(lr,param_grid=params,)
+    ada=AdaBoostClassifier( ) 
+    params3={'n_estimators':[200,400,600,800,1000],'learning_rate':[0.5,1,1.5]}
+    #clf=GridSearchCV(ada,param_grid=params3)
+    
+    clf= GridSearchCV(clf_svm, params1)
+    clf.fit(train_feature,train_label)
+    clf_best=clf.best_estimator_
+    #clf_best=svm.SVC(C=9,gamma=0.09,kernel='rbf',probability=True)
+    #clf_best=AdaBoostClassifier(n_estimators = 800 , learning_rate = 1.53 ) 
+    print(clf_best)
+    clf_best.fit(train_feature,train_label)
+    predict_prob=clf_best.predict_proba(test_feature)[:,1] 
+    accuracy.append(clf_best.score(test_feature,test_label))
+    LR_model_list.append(clf_best)
+    df_test['factor'] = predict_prob
+    df_test = df_test[['stock', 'tradeDate', 'rets', 'factor']]
+    
+    final=pd.concat([final,df_test])
+    #return LR_model_list,final,accuracy
+print('accuracy=%f'% (pd.Series(accuracy).mean()))
+plt.plot(accuracy,label='accuracy')
