@@ -1,0 +1,57 @@
+from __future__ import print_function
+import datetime
+import pandas as pd
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn import svm
+from sklearn.model_selection import GridSearchCV
+from sklearn import metrics
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.ensemble import AdaBoostClassifier
+from sklearn.tree import DecisionTreeClassifier
+from scipy.optimize import minimize
+
+data=DataAPI.TradeCalGet(exchangeCD=u"XSHG",beginDate=u'20150310',endDate='20180310',field=['calendarDate','isWeekEnd','isMonthEnd'],pandas="1")
+data = data[data['isMonthEnd'] == 1]  
+data_end = map(lambda x: x[0:4]+x[5:7]+x[8:10], data['calendarDate'].values.tolist()) 
+    
+
+factor_names =['PB','PE' ,'CurrentRatio','TotalAssetsTRate','ROE','NetAssetGrowRate','EPS']
+data0=pd.DataFrame() 
+for i in range(len(data_end)-1): 
+    factordata=DataAPI.MktStockFactorsOneDayGet(secID=set_universe('HS300'),tradeDate=data_end[i],ticker='',field=['ticker','tradeDate',]+factor_names,pandas="1").set_index(['ticker'])  #set_universe('HS300')构成list，例如['000001.XSHE','000002.XSHE','000060.XSHE','000063.XSHE'...]。由于下面的缘故，我们用ticker值作为键。因此factordata是一个以ticker为键，以tradedate和那六个factor为属性的dataframe。
+    #Get data from Uqer
+    for j in range(len(factor_names)):
+        signal = standardize(neutralize(winsorize(factordata[factor_names[j]].dropna().to_dict()),data_end[i])) 
+        factordata[factor_names[j]][signal.keys()]= signal.values()
+    data1 = factordata
+    
+    data2=DataAPI.MktEqumGet(secID=set_universe('HS300'),beginDate=data_end[i+1],endDate=data_end[i+1],
+field=u"ticker,return", pandas="1").set_index(['ticker'])  
+                                                       
+                                 
+    data1=pd.concat([data1,data2],axis=1) 
+    data1['stock']=data1.index
+    data1=data1.set_index(['tradeDate'])
+    data0=pd.concat([data0,data1])
+
+data0['tradeDate']=data0.index
+data0=data0.reset_index(drop=True)
+data0=data0.loc[data0['tradeDate'].dropna().index]
+       
+data0['y_m'] = data0.tradeDate.apply(lambda x: str(x[0:7]))   
+data0=data0.dropna()
+sns.heatmap(data0[factor_names].corr())
+data0[factor_names].corr()
+
+rets=pd.DataFrame()
+for d in data['calendarDate'].values[:]:            
+    lables = data0[data0['tradeDate']==d]['return']>=data0[data0['tradeDate']==d]['return'].mean()  
+    lables = lables.replace({True:'1',False:'0'})        
+    rets=pd.concat([rets,lables])
+rets.columns=['rets']
+data0=pd.concat([data0,rets],axis=1)    
+df=data0
+
+
